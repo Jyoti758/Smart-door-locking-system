@@ -1,0 +1,157 @@
+#include <Servo.h>
+#include <LiquidCrystal_I2C.h>
+#include <Keypad.h>
+
+// ---------------- LCD ----------------
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// ---------------- SERVO ----------------
+Servo servo;
+
+// ---------------- BUZZER ----------------
+#define buzzer 11
+
+// ---------------- KEYPAD ----------------
+const byte ROWS = 4;
+const byte COLS = 4;
+
+char keys[ROWS][COLS] = {
+  {'D', 'C', 'B', 'A'},
+  {'#', '9', '6', '3'},
+  {'0', '8', '5', '2'},
+  {'*', '7', '4', '1'}
+};
+
+byte rowPins[ROWS] = {2, 3, 4, 5};
+byte colPins[COLS] = {6, 7, 8, 9};
+
+Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
+
+// ---------------- PASSWORD ----------------
+String password = "0123";
+String enteredPassword = "";
+
+// ---------------- SETUP ----------------
+void setup() {
+
+  Serial.begin(9600);
+
+  pinMode(buzzer, OUTPUT);
+
+  // Servo connected to pin 10
+  servo.attach(10);
+
+  // Initial door position = locked
+  servo.write(110);
+
+  // LCD
+  lcd.init();
+  lcd.backlight();
+
+  lcd.setCursor(3, 0);
+  lcd.print("WELCOME TO");
+
+  lcd.setCursor(1, 1);
+  lcd.print("DOOR LOCK");
+
+  delay(2000);
+
+  lcd.clear();
+
+  lcd.setCursor(0, 0);
+  lcd.print("ENTER PASSWORD");
+}
+
+// ---------------- LOOP ----------------
+void loop() {
+
+  char key = keypad.getKey();
+
+  if (key != NO_KEY) {
+
+    // C = Clear password
+    if (key == 'C') {
+
+      enteredPassword = "";
+
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("ENTER PASSWORD");
+
+      return;
+    }
+
+    // D = Check password
+    if (key == 'D') {
+
+      checkPassword();
+
+      return;
+    }
+
+    // Only accept numbers
+    if (key >= '0' && key <= '9') {
+
+      if (enteredPassword.length() < 4) {
+
+        enteredPassword += key;
+
+        lcd.setCursor(enteredPassword.length() - 1, 1);
+        lcd.print("*");
+      }
+    }
+  }
+}
+
+// ---------------- CHECK PASSWORD ----------------
+void checkPassword() {
+
+  lcd.clear();
+
+  if (enteredPassword == password) {
+
+    // Correct password
+    digitalWrite(buzzer, HIGH);
+    delay(200);
+    digitalWrite(buzzer, LOW);
+
+    // Open door
+    servo.write(50);
+
+    lcd.setCursor(0, 0);
+    lcd.print("CORRECT PASSWORD");
+
+    lcd.setCursor(3, 1);
+    lcd.print("DOOR OPENED");
+
+    delay(3000);
+
+  } else {
+
+    // Wrong password
+    for (int i = 0; i < 3; i++) {
+
+      digitalWrite(buzzer, HIGH);
+      delay(200);
+
+      digitalWrite(buzzer, LOW);
+      delay(200);
+    }
+
+    lcd.setCursor(0, 0);
+    lcd.print("WRONG PASSWORD!");
+
+    lcd.setCursor(0, 1);
+    lcd.print("TRY AGAIN");
+
+    delay(2000);
+  }
+
+  // Reset
+  enteredPassword = "";
+
+  lcd.clear();
+
+  lcd.setCursor(0, 0);
+  lcd.print("ENTER PASSWORD");
+}
